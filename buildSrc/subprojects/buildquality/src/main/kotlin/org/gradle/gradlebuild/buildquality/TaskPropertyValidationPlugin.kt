@@ -42,10 +42,7 @@ open class TaskPropertyValidationPlugin : Plugin<Project> {
                 isCanBeConsumed = false
                 attributes.attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage.JAVA_RUNTIME))
             }
-            // TODO - Move this to a distribution project
-            dependencies.add("minimalRuntime", dependencies.project(":core"))
-            dependencies.add("minimalRuntime", dependencies.project(":dependencyManagement"))
-            dependencies.add("minimalRuntime", dependencies.project(":platformJvm"))
+            dependencies.add("minimalRuntime", dependencies.project(":distributions"))
             addValidateTask()
         }
     }
