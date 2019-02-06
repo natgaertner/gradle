@@ -71,6 +71,9 @@ dependencies {
     implementation(library("xmlApis"))
 
     runtimeOnly(project(":docs"))
+    runtimeOnly(project(":dependencyManagement"))
+    runtimeOnly(project(":compositeBuilds"))
+    runtimeOnly(project(":platformJvm")) // For @Classpath annotation implementations
 
     testImplementation(testLibrary("jsoup"))
     testImplementation(library("log4j_to_slf4j"))
@@ -78,7 +81,6 @@ dependencies {
 
     testRuntimeOnly(library("xerces"))
     testRuntimeOnly(project(":diagnostics"))
-    testRuntimeOnly(project(":compositeBuilds"))
 
     testFixturesImplementation(project(":internalTesting"))
     testFixturesImplementation(library("ivy"))

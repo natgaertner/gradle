@@ -78,7 +78,8 @@ fun Project.addValidateTask() =
                 val main by java.sourceSets
                 dependsOn(main.output)
                 classes.setFrom(main.output.classesDirs)
-                classes.setFrom(main.runtimeClasspath)
+                classpath.setFrom(main.output)
+                classpath.setFrom(main.runtimeClasspath)
                 // TODO Should we provide a more intuitive way in the task definition to configure this property from Kotlin?
                 outputFile.set(reporting.baseDirectory.file(reportFileName))
                 failOnWarning = true
