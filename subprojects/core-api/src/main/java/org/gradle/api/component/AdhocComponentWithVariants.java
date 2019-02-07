@@ -15,10 +15,9 @@
  */
 package org.gradle.api.component;
 
+import org.gradle.api.Action;
 import org.gradle.api.Incubating;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.ConfigurationVariant;
-import org.gradle.api.specs.Spec;
 
 /**
  * A component which can declare additional variants corresponding to
@@ -29,11 +28,13 @@ import org.gradle.api.specs.Spec;
  * @since 5.3
  */
 @Incubating
-public interface ComponentWithFeatures extends SoftwareComponent {
+public interface AdhocComponentWithVariants extends SoftwareComponent {
+
     /**
      * Declares an additional variant to publish, corresponding to an additional feature.
      * @param outgoingConfiguration the configuration corresponding to the variant to use as source of dependencies and artifacts
-     * @param spec tell if this outgoing variant of this configuration should be published
+     * @param action the action to execute in order to determine if a configuration variant should be published or not
      */
-    void addFeatureVariantsFromConfiguration(Configuration outgoingConfiguration, Spec<? super ConfigurationVariant> spec);
+    void addVariantsFromConfiguration(Configuration outgoingConfiguration, Action<? super ConfigurationVariantDetails> action);
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 the original author or authors.
+ * Copyright 2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.gradle.api.publish.maven.internal.versionmapping;
+package org.gradle.api.internal.component;
 
-import org.gradle.api.internal.attributes.ImmutableAttributes;
+public interface MavenPublishingAwareContext extends UsageContext {
+    ScopeMapping getScopeMapping();
 
-class PublishedVariant {
-    final String name;
-    final ImmutableAttributes attributes;
+    // Order is important!
+    enum ScopeMapping {
+        compile,
+        runtime,
+        compile_optional,
+        runtime_optional;
 
-    PublishedVariant(String name, ImmutableAttributes attributes) {
-        this.name = name;
-        this.attributes = attributes;
+        public static ScopeMapping of(String scope, boolean optional) {
+            if (optional) {
+                scope += "_optional";
+            }
+            return ScopeMapping.valueOf(scope);
+        }
     }
 }
