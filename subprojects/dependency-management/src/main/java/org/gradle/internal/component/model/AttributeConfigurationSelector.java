@@ -19,16 +19,21 @@ package org.gradle.internal.component.model;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
+import org.gradle.api.capabilities.Capability;
 import org.gradle.api.internal.attributes.AttributesSchemaInternal;
 import org.gradle.api.internal.attributes.ImmutableAttributes;
 import org.gradle.internal.component.AmbiguousConfigurationSelectionException;
+import org.gradle.internal.component.NoMatchingCapabilitiesException;
 import org.gradle.internal.component.NoMatchingConfigurationSelectionException;
+import org.gradle.internal.component.external.model.ShadowedCapability;
 
+import java.util.Collection;
 import java.util.List;
 
 public abstract class AttributeConfigurationSelector {
 
-    public static ConfigurationMetadata selectConfigurationUsingAttributeMatching(ImmutableAttributes consumerAttributes, ComponentResolveMetadata targetComponent, AttributesSchemaInternal consumerSchema) {
+    public static ConfigurationMetadata selectConfigurationUsingAttributeMatching(ImmutableAttributes consumerAttributes, Collection<? extends Capability> explicitRequestedCapabilities, ComponentResolveMetadata targetComponent, AttributesSchemaInternal consumerSchema) {
         Optional<ImmutableList<? extends ConfigurationMetadata>> variantsForGraphTraversal = targetComponent.getVariantsForGraphTraversal();
         ImmutableList<? extends ConfigurationMetadata> consumableConfigurations = variantsForGraphTraversal.or(ImmutableList.<ConfigurationMetadata>of());
         AttributesSchemaInternal producerAttributeSchema = targetComponent.getAttributesSchema();
@@ -37,17 +42,130 @@ public abstract class AttributeConfigurationSelector {
         if (fallbackConfiguration != null && !fallbackConfiguration.isCanBeConsumed()) {
             fallbackConfiguration = null;
         }
-        List<ConfigurationMetadata> matches = attributeMatcher.matches(consumableConfigurations, consumerAttributes, fallbackConfiguration);
-        if (matches.size() == 1) {
-            ConfigurationMetadata match = matches.get(0);
-            if (variantsForGraphTraversal.isPresent()) {
-                return SelectedByVariantMatchingConfigurationMetadata.of(match);
+        ModuleVersionIdentifier versionId = targetComponent.getModuleVersionId();
+        if (!consumableConfigurations.isEmpty()) {
+            ImmutableList<ConfigurationMetadata> variantsProvidingRequestedCapabilities = filterVariantsByRequestedCapabilities(targetComponent, explicitRequestedCapabilities, consumableConfigurations, versionId.getGroup(), versionId.getName(), true);
+            if (variantsProvidingRequestedCapabilities.isEmpty()) {
+                throw new NoMatchingCapabilitiesException(targetComponent, explicitRequestedCapabilities, consumableConfigurations);
             }
-            return match;
+            consumableConfigurations = variantsProvidingRequestedCapabilities;
+        }
+        List<ConfigurationMetadata> matches = attributeMatcher.matches(consumableConfigurations, consumerAttributes, fallbackConfiguration);
+        if (matches.size() > 1) {
+            // there's an ambiguity, but we may have several variants matching the requested capabilities.
+            // Here we're going to check if in the candidates, there's a single one _strictly_ matching the requested capabilities.
+            List<ConfigurationMetadata> strictlyMatchingCapabilities = filterVariantsByRequestedCapabilities(targetComponent, explicitRequestedCapabilities, matches, versionId.getGroup(), versionId.getName(), false);
+            if (strictlyMatchingCapabilities.size() == 1) {
+                return singleVariant(variantsForGraphTraversal, matches);
+            }
+        }
+        if (matches.size() == 1) {
+            return singleVariant(variantsForGraphTraversal, matches);
         } else if (!matches.isEmpty()) {
             throw new AmbiguousConfigurationSelectionException(consumerAttributes, attributeMatcher, matches, targetComponent, variantsForGraphTraversal.isPresent());
         } else {
             throw new NoMatchingConfigurationSelectionException(consumerAttributes, attributeMatcher, targetComponent, variantsForGraphTraversal.isPresent());
+        }
+    }
+
+    private static ConfigurationMetadata singleVariant(Optional<ImmutableList<? extends ConfigurationMetadata>> variantsForGraphTraversal, List<ConfigurationMetadata> matches) {
+        ConfigurationMetadata match = matches.get(0);
+        if (variantsForGraphTraversal.isPresent()) {
+            return SelectedByVariantMatchingConfigurationMetadata.of(match);
+        }
+        return match;
+    }
+
+    private static ImmutableList<ConfigurationMetadata> filterVariantsByRequestedCapabilities(ComponentResolveMetadata targetComponent, Collection<? extends Capability> explicitRequestedCapabilities, Collection<? extends ConfigurationMetadata> consumableConfigurations, String group, String name, boolean lenient) {
+        if (consumableConfigurations.isEmpty()) {
+            return ImmutableList.of();
+        }
+        ImmutableList.Builder<ConfigurationMetadata> builder = ImmutableList.builderWithExpectedSize(consumableConfigurations.size());
+        boolean explicitlyRequested = !explicitRequestedCapabilities.isEmpty();
+        for (ConfigurationMetadata configuration : consumableConfigurations) {
+            List<? extends Capability> capabilities = configuration.getCapabilities().getCapabilities();
+            MatchResult result;
+            if (explicitlyRequested) {
+                // some capabilities are explicitly required (in other words, we're not _necessarily_ looking for the default capability
+                // so we need to filter the configurations
+                result = providesAllCapabilities(targetComponent, explicitRequestedCapabilities, capabilities);
+            } else {
+                // we need to make sure the variants we consider provide the implicit capability
+                result = containsImplicitCapability(capabilities, group, name);
+            }
+            if (result.matches) {
+                if (lenient || result == MatchResult.EXACT_MATCH) {
+                    builder.add(configuration);
+                }
+            }
+        }
+        return builder.build();
+    }
+
+    /**
+     * Determines if a producer variant provides all the requested capabilities. When doing so it does
+     * NOT consider capability versions, as they will be used later in the engine during conflict resolution.
+     */
+    private static MatchResult providesAllCapabilities(ComponentResolveMetadata targetComponent, Collection<? extends Capability> explicitRequestedCapabilities, List<? extends Capability> providerCapabilities) {
+        if (providerCapabilities.isEmpty()) {
+            // producer doesn't declare anything, so we assume that it only provides the implicit capability
+            if (explicitRequestedCapabilities.size() == 1) {
+                Capability requested = explicitRequestedCapabilities.iterator().next();
+                ModuleVersionIdentifier mvi = targetComponent.getModuleVersionId();
+                if (requested.getGroup().equals(mvi.getGroup()) && requested.getName().equals(mvi.getName())) {
+                    return MatchResult.EXACT_MATCH;
+                }
+            }
+        }
+        for (Capability requested : explicitRequestedCapabilities) {
+            String requestedGroup = requested.getGroup();
+            String requestedName = requested.getName();
+            boolean found = false;
+            for (Capability provided : providerCapabilities) {
+                if (provided.getGroup().equals(requestedGroup) && provided.getName().equals(requestedName)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return MatchResult.NO_MATCH;
+            }
+        }
+        boolean exactMatch = explicitRequestedCapabilities.size() == providerCapabilities.size();
+        return exactMatch ? MatchResult.EXACT_MATCH : MatchResult.MATCHES_ALL;
+    }
+
+    private static MatchResult containsImplicitCapability(Collection<? extends Capability> capabilities, String group, String name) {
+        if (capabilities.isEmpty()) {
+            // An empty capability list means that it's an implicit capability only
+            return MatchResult.EXACT_MATCH;
+        }
+        for (Capability capability : capabilities) {
+            capability = unwrap(capability);
+            if (group.equals(capability.getGroup()) && name.equals(capability.getName())) {
+                boolean exactMatch = capabilities.size() == 1;
+                return exactMatch ? MatchResult.EXACT_MATCH : MatchResult.MATCHES_ALL;
+            }
+        }
+        return MatchResult.NO_MATCH;
+    }
+
+    private static Capability unwrap(Capability capability) {
+        if (capability instanceof ShadowedCapability) {
+            return ((ShadowedCapability) capability).getShadowedCapability();
+        }
+        return capability;
+    }
+
+    private enum MatchResult {
+        NO_MATCH(false),
+        MATCHES_ALL(true),
+        EXACT_MATCH(true);
+
+        private final boolean matches;
+
+        MatchResult(boolean match) {
+            this.matches = match;
         }
     }
 }

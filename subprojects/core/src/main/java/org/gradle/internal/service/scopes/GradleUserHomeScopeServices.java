@@ -30,6 +30,7 @@ import org.gradle.api.internal.changedetection.state.GlobalScopeFileTimeStampIns
 import org.gradle.api.internal.changedetection.state.ResourceFilter;
 import org.gradle.api.internal.changedetection.state.ResourceSnapshotterCacheService;
 import org.gradle.api.internal.classpath.ModuleRegistry;
+import org.gradle.api.internal.file.FileCollectionFactory;
 import org.gradle.api.internal.file.TemporaryFileProvider;
 import org.gradle.api.internal.initialization.loadercache.ClassLoaderCache;
 import org.gradle.api.internal.initialization.loadercache.DefaultClassLoaderCache;
@@ -86,7 +87,6 @@ import org.gradle.internal.service.ServiceRegistration;
 import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.internal.snapshot.FileSystemMirror;
 import org.gradle.internal.snapshot.FileSystemSnapshotter;
-import org.gradle.internal.snapshot.ValueSnapshotter;
 import org.gradle.internal.snapshot.WellKnownFileLocations;
 import org.gradle.internal.snapshot.impl.DefaultFileSystemMirror;
 import org.gradle.internal.snapshot.impl.DefaultFileSystemSnapshotter;
@@ -148,7 +148,7 @@ public class GradleUserHomeScopeServices {
         return new CrossBuildInMemoryCachingScriptClassCache(cacheFactory);
     }
 
-    ValueSnapshotter createValueSnapshotter(ClassLoaderHierarchyHasher classLoaderHierarchyHasher) {
+    DefaultValueSnapshotter createValueSnapshotter(ClassLoaderHierarchyHasher classLoaderHierarchyHasher) {
         return new DefaultValueSnapshotter(classLoaderHierarchyHasher, NamedObjectInstantiator.INSTANCE);
     }
 
@@ -202,8 +202,8 @@ public class GradleUserHomeScopeServices {
         return new DefaultClasspathFingerprinter(resourceSnapshotterCacheService, fileSystemSnapshotter, ResourceFilter.FILTER_NOTHING, stringInterner);
     }
 
-    ClasspathHasher createClasspathHasher(ClasspathFingerprinter fingerprinter) {
-        return new DefaultClasspathHasher(fingerprinter);
+    ClasspathHasher createClasspathHasher(ClasspathFingerprinter fingerprinter, FileCollectionFactory fileCollectionFactory) {
+        return new DefaultClasspathHasher(fingerprinter, fileCollectionFactory);
     }
 
     HashingClassLoaderFactory createClassLoaderFactory(ClasspathHasher classpathHasher) {

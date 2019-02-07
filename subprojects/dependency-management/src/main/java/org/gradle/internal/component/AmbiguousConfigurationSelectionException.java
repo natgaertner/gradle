@@ -56,13 +56,13 @@ public class AmbiguousConfigurationSelectionException extends RuntimeException {
         // to make sure the output is consistently the same between invocations
         formatter.startChildren();
         for (ConfigurationMetadata ambiguousConf : ambiguousConfigurations.values()) {
-            formatConfiguration(formatter, fromConfigurationAttributes, attributeMatcher, ambiguousConf, variantAware);
+            formatConfiguration(formatter, targetComponent, fromConfigurationAttributes, attributeMatcher, ambiguousConf, variantAware);
         }
         formatter.endChildren();
         return formatter.toString();
     }
 
-    static void formatConfiguration(TreeFormatter formatter, AttributeContainerInternal consumerAttributes, AttributeMatcher attributeMatcher, ConfigurationMetadata configuration, boolean variantAware) {
+    static void formatConfiguration(TreeFormatter formatter, ComponentResolveMetadata targetComponent, AttributeContainerInternal consumerAttributes, AttributeMatcher attributeMatcher, ConfigurationMetadata configuration, boolean variantAware) {
         AttributeContainerInternal producerAttributes = configuration.getAttributes();
         if (variantAware) {
             formatter.node("Variant '");
@@ -71,6 +71,9 @@ public class AmbiguousConfigurationSelectionException extends RuntimeException {
         }
         formatter.append(configuration.getName());
         formatter.append("'");
+        if (variantAware) {
+            formatter.append(" " + CapabilitiesSupport.prettifyCapabilities(targetComponent, configuration.getCapabilities().getCapabilities()));
+        }
         formatAttributeMatches(formatter, consumerAttributes, attributeMatcher, producerAttributes);
     }
 
@@ -82,13 +85,13 @@ public class AmbiguousConfigurationSelectionException extends RuntimeException {
         for (Attribute<?> attribute : consumerAttributes.keySet()) {
             allAttributes.put(attribute.getName(), attribute);
         }
-        ImmutableAttributes immmutableConsumer = consumerAttributes.asImmutable();
+        ImmutableAttributes immutableConsumer = consumerAttributes.asImmutable();
         ImmutableAttributes immutableProducer = producerAttributes.asImmutable();
         formatter.startChildren();
         for (Attribute<?> attribute : allAttributes.values()) {
             Attribute<Object> untyped = Cast.uncheckedCast(attribute);
             String attributeName = attribute.getName();
-            AttributeValue<Object> consumerValue = immmutableConsumer.findEntry(untyped);
+            AttributeValue<Object> consumerValue = immutableConsumer.findEntry(untyped);
             AttributeValue<?> producerValue = immutableProducer.findEntry(attribute.getName());
             if (consumerValue.isPresent() && producerValue.isPresent()) {
                 if (attributeMatcher.isMatching(untyped, producerValue.coerce(attribute), consumerValue.coerce(attribute))) {

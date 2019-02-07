@@ -6,7 +6,7 @@ import configurations.DependenciesCheck
 import configurations.Gradleception
 import configurations.SanityCheck
 import configurations.SmokeTests
-import jetbrains.buildServer.configs.kotlin.v2018_1.BuildType
+import jetbrains.buildServer.configs.kotlin.v2018_2.BuildType
 
 
 enum class StageNames(override val stageName: String, override val description: String, override val uuid: String) : StageName{
@@ -74,7 +74,7 @@ data class CIBuildModel (
             Stage(StageNames.HISTORICAL_PERFORMANCE,
                     trigger = Trigger.weekly,
                     performanceTests = listOf(
-                            PerformanceTestType.historical)),
+                        PerformanceTestType.historical, PerformanceTestType.flakinessDetection)),
             Stage(StageNames.EXPERIMENTAL,
                     trigger = Trigger.never,
                     runsIndependent = true,
@@ -153,12 +153,12 @@ data class CIBuildModel (
             GradleSubproject("testingJvm"),
             GradleSubproject("testingJunitPlatform"),
             GradleSubproject("testingNative"),
-            GradleSubproject("toolingApi", crossVersionTests = true, useDaemon = false),
+            GradleSubproject("toolingApi", crossVersionTests = true),
             GradleSubproject("toolingApiBuilders", functionalTests = false),
             GradleSubproject("toolingNative", unitTests = false, functionalTests = false, crossVersionTests = true),
             GradleSubproject("versionControl"),
             GradleSubproject("workers"),
-            GradleSubproject("wrapper", crossVersionTests = true, useDaemon = false),
+            GradleSubproject("wrapper", crossVersionTests = true),
 
             GradleSubproject("soak", unitTests = false, functionalTests = false),
 
@@ -170,6 +170,7 @@ data class CIBuildModel (
             GradleSubproject("kotlinDslPlugins", unitTests = true, functionalTests = true),
             GradleSubproject("kotlinDslTestFixtures", unitTests = true, functionalTests = false),
             GradleSubproject("kotlinDslIntegTests", unitTests = false, functionalTests = true),
+            GradleSubproject("kotlinCompilerEmbeddable", unitTests = false, functionalTests = false),
 
             GradleSubproject("architectureTest", unitTests = false, functionalTests = false),
             GradleSubproject("distributionsDependencies", unitTests = false, functionalTests = false),
@@ -183,14 +184,12 @@ data class CIBuildModel (
             GradleSubproject("smokeTest", unitTests = false, functionalTests = false))
         )
 
-data class GradleSubproject(val name: String, val unitTests: Boolean = true, val functionalTests: Boolean = true, val crossVersionTests: Boolean = false, val containsSlowTests: Boolean = false, val useDaemon: Boolean = true) {
+data class GradleSubproject(val name: String, val unitTests: Boolean = true, val functionalTests: Boolean = true, val crossVersionTests: Boolean = false, val containsSlowTests: Boolean = false) {
     fun asDirectoryName(): String {
         return name.replace(Regex("([A-Z])"), { "-" + it.groups[1]!!.value.toLowerCase() })
     }
 
     fun hasTestsOf(type: TestType) = (unitTests && type.unitTests) || (functionalTests && type.functionalTests) || (crossVersionTests && type.crossVersionTests)
-
-    fun useDaemonFor(type: TestType) = useDaemon && type != TestType.noDaemon
 }
 
 interface BuildCache {
@@ -288,6 +287,7 @@ enum class JvmVendor {
 enum class PerformanceTestType(val taskId: String, val timeout : Int, val defaultBaselines: String = "", val extraParameters : String = "") {
     test("PerformanceTest", 420, "defaults"),
     experiment("PerformanceExperiment", 420, "defaults"),
+    flakinessDetection("FlakinessDetection", 420, "flakiness-detection-commit"),
     historical("FullPerformanceTest", 2280, "2.14.1,3.5.1,4.0,last", "--checks none");
 
     fun asId(model : CIBuildModel): String {

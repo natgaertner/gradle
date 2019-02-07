@@ -2,6 +2,14 @@
 
 _Note: this format is not yet stable and may change at any time. Gradle does not guarantee to offer any long term support for this version of the format. Any version before 1.0 is intentionally assumed not backwards compatible, and the parsers are not required to support pre 1.0 releases._
 
+Support for Gradle metadata can be enabled in Gradle settings file (`settings.gradle`):
+
+```
+enableFeaturePreview("GRADLE_METADATA")
+```
+
+## Goal
+
 This document describes version 0.4 of the Gradle module metadata file. A module metadata file describes the contents of a _module_, which is the unit of publication for a particular repository format, such as a module in a Maven repository. This is often called a "package" in many repository formats.
 
 The module metadata file is a JSON file published alongside the existing repository specific metadata files, such as a Maven POM or Ivy descriptor. It adds additional metadata that can be used by Gradle versions and other tooling that understand the format. This allows the rich Gradle model to be mapped to and "tunnelled" through existing repository formats, while continuing to support existing Gradle versions and tooling that does not understand the format. 
@@ -68,7 +76,7 @@ This value must contain an object with a value for each attribute. The attribute
 
 ### `capabilities` value
 
-This valud must contain an array of 0 or more capabilities. Each capability is an object consisting of the mandatory following values:
+This value must contain an array of 0 or more capabilities. Each capability is an object consisting of the mandatory following values:
 
 - `group`: The group of the capability. A string.
 - `name`: The name of the capability. A string.
@@ -98,6 +106,7 @@ This value must contain an array with zero or more elements. Each element must b
 - `excludes`: optional. Defines the exclusions that apply to this dependency. 
 - `reason`: optional. A explanation why the dependency is used. Can typically be used to explain why a specific version is requested.
 - `attributes`: optional. If set, attributes will override the consumer attributes during dependency resolution for this specific dependency.
+- `requestedCapabilities`: optional. If set, declares the capabilities that the dependency must provide in order to be selected. See `capabilities` above for the format.
 
 #### `version` value
 

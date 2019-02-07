@@ -37,7 +37,7 @@ class DefaultSwiftLibraryTest extends Specification {
     DefaultSwiftLibrary library
 
     def setup() {
-        library = new DefaultSwiftLibrary("main", project.objects, project.fileOperations, project.configurations)
+        library = project.objects.newInstance(DefaultSwiftLibrary, "main")
     }
 
     def "has display name"() {
@@ -108,8 +108,8 @@ class DefaultSwiftLibraryTest extends Specification {
 
     private NativeVariantIdentity getIdentity() {
         return new NativeVariantIdentity("test", null, null, null, true, false, targetMachine(OperatingSystemFamily.WINDOWS, MachineArchitecture.X86_64),
-            new DefaultUsageContext("test", null, AttributeTestUtil.attributesFactory().mutable()),
-            new DefaultUsageContext("test", null, AttributeTestUtil.attributesFactory().mutable())
+            new DefaultUsageContext("test", AttributeTestUtil.attributesFactory().mutable()),
+            new DefaultUsageContext("test", AttributeTestUtil.attributesFactory().mutable())
         )
     }
 

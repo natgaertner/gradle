@@ -575,7 +575,10 @@ class CppApplicationIntegrationTest extends AbstractCppIntegrationTest implement
     }
 
     def "fails compile and link against a library with different operating system family support"() {
-        settingsFile << "include 'app', 'hello'"
+        settingsFile << """
+            rootProject.name = 'test'
+            include 'app', 'hello'
+        """
         def app = new CppAppWithLibrary()
 
         given:
@@ -603,7 +606,8 @@ class CppApplicationIntegrationTest extends AbstractCppIntegrationTest implement
         fails ":app:assemble"
 
         failure.assertHasCause """Unable to find a matching variant of project :hello:
-  - Variant 'cppApiElements':
+  - Variant 'cppApiElements' capability test:hello:unspecified:
+      - Found artifactType 'directory' but wasn't required.
       - Required org.gradle.native.architecture '${currentArchitecture}' but no value provided.
       - Required org.gradle.native.debuggable 'true' but no value provided.
       - Required org.gradle.native.operatingSystem '${currentOsFamilyName}' but no value provided.

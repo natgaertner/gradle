@@ -23,7 +23,8 @@ import org.gradle.api.internal.TaskInternal
 import org.gradle.api.internal.TaskOutputsInternal
 import org.gradle.api.internal.changedetection.TaskExecutionMode
 import org.gradle.api.internal.changedetection.TaskExecutionModeResolver
-import org.gradle.api.internal.file.FileResolver
+import org.gradle.api.internal.file.FileCollectionFactory
+import org.gradle.api.internal.file.FileCollectionInternal
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.internal.tasks.TaskDestroyablesInternal
 import org.gradle.api.internal.tasks.TaskExecuter
@@ -32,7 +33,6 @@ import org.gradle.api.internal.tasks.TaskExecutionContext
 import org.gradle.api.internal.tasks.TaskLocalStateInternal
 import org.gradle.api.internal.tasks.TaskStateInternal
 import org.gradle.api.internal.tasks.properties.PropertyWalker
-import org.gradle.internal.service.ServiceRegistry
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -48,13 +48,12 @@ class ResolveTaskExecutionModeExecuterTest extends Specification {
     final taskContext = Mock(TaskExecutionContext)
     final repository = Mock(TaskExecutionModeResolver)
     final executionMode = TaskExecutionMode.INCREMENTAL
-    final resolver = Mock(FileResolver)
+    final fileCollectionFactory = Mock(FileCollectionFactory)
     final propertyWalker = Mock(PropertyWalker)
     final project = Mock(ProjectInternal)
-    final serviceRegistry = Mock(ServiceRegistry)
     final Action<Task> action = Mock(Action)
 
-    final executer = new ResolveTaskExecutionModeExecuter(repository, resolver, propertyWalker, delegate)
+    final executer = new ResolveTaskExecutionModeExecuter(repository, fileCollectionFactory, propertyWalker, delegate)
 
     def 'taskContext is initialized and cleaned as expected'() {
         when:
@@ -68,10 +67,9 @@ class ResolveTaskExecutionModeExecuterTest extends Specification {
         1 * task.getInputs() >> inputs
         1 * task.getDestroyables() >> destroyables
         1 * task.getLocalState() >> localState
+        2 * fileCollectionFactory.resolving(_, _) >> Stub(FileCollectionInternal)
         1 * outputs.setPreviousOutputFiles(_)
-        1 * task.getProject() >> project
-        1 * project.getFileResolver() >> resolver
-        1 * propertyWalker.visitProperties(_, _, task)
+        1 * propertyWalker.visitProperties(task, _, _)
         1 * inputs.visitRegisteredProperties(_)
         1 * outputs.visitRegisteredProperties(_)
 

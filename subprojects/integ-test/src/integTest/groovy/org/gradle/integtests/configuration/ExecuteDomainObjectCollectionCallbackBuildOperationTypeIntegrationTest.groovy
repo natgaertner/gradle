@@ -154,7 +154,7 @@ class ExecuteDomainObjectCollectionCallbackBuildOperationTypeIntegrationTest ext
         "matching{true}.all" | 'pmd reports'             | ['java-library', 'pmd']        | 'pmdMain.reports'                        | ''
         "matching{true}.all" | 'codenarc reports'        | ['groovy', 'codenarc']         | 'codenarcMain.reports'                   | ''
         "matching{true}.all" | 'html dependency reports' | ['project-report']             | 'htmlDependencyReport.reports'           | ''
-        "matching{true}.all" | 'build dasboard reports'  | ['build-dashboard']            | 'buildDashboard.reports'                 | ''
+        "matching{true}.all" | 'build dashboard reports' | ['build-dashboard']            | 'buildDashboard.reports'                 | ''
         "matching{true}.all" | 'jacoco reports'          | ['java-library', 'jacoco']     | 'jacocoTestReport.reports'               | ''
     }
 
@@ -173,9 +173,9 @@ class ExecuteDomainObjectCollectionCallbackBuildOperationTypeIntegrationTest ext
         run('foo')
 
         then:
-        def resgisterCallbackBuildOp = ops.only(ExecuteDomainObjectCollectionCallbackBuildOperationType)
+        def registerCallbackBuildOp = ops.only(ExecuteDomainObjectCollectionCallbackBuildOperationType)
         def registrationScriptApplication = ops.only(ApplyScriptPluginBuildOperationType, { it.details.file.endsWith('registration.gradle') })
-        assert registrationScriptApplication.details.applicationId == resgisterCallbackBuildOp.details.applicationId
+        assert registrationScriptApplication.details.applicationId == registerCallbackBuildOp.details.applicationId
     }
 
     def "task registration callback action executions emit build operation with plugin applicationId"() {

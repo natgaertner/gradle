@@ -16,18 +16,18 @@
 
 package org.gradle.api.internal.artifacts.transform;
 
-import com.google.common.collect.ImmutableSet;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.artifacts.result.DependencyResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.artifacts.ResolverResults;
 import org.gradle.api.internal.artifacts.ivyservice.DefaultLenientConfiguration;
 import org.gradle.api.internal.artifacts.ivyservice.ResolvedFilesCollectingVisitor;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.SelectedArtifactSet;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.VisitedArtifactSet;
-import org.gradle.api.internal.file.collections.ImmutableFileCollection;
+import org.gradle.api.internal.file.FileCollectionFactory;
 import org.gradle.api.internal.tasks.TaskDependencyContainer;
 import org.gradle.api.internal.tasks.TaskDependencyResolveContext;
 import org.gradle.api.internal.tasks.WorkNodeAction;
@@ -37,15 +37,14 @@ import org.gradle.internal.Try;
 import org.gradle.internal.fingerprint.CurrentFileCollectionFingerprint;
 import org.gradle.internal.fingerprint.FileCollectionFingerprinter;
 
-import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 
 public class DefaultExecutionGraphDependenciesResolver implements ExecutionGraphDependenciesResolver {
-    private static final ArtifactTransformDependenciesInternal EMPTY_DEPENDENCIES = new ArtifactTransformDependenciesInternal() {
+    private static final ArtifactTransformDependencies MISSING_DEPENDENCIES = new ArtifactTransformDependencies() {
         @Override
-        public Iterable<File> getFiles() {
-            return ImmutableSet.of();
+        public FileCollection getFiles() {
+            throw new IllegalStateException("Tranform does not use artifact dependencies.");
         }
 
         @Override
@@ -58,20 +57,22 @@ public class DefaultExecutionGraphDependenciesResolver implements ExecutionGraph
     private final Factory<ResolverResults> graphResults;
     private final Factory<ResolverResults> artifactResults;
     private final WorkNodeAction graphResolveAction;
+    private final FileCollectionFactory fileCollectionFactory;
     private Set<ComponentIdentifier> buildDependencies;
     private Set<ComponentIdentifier> dependencies;
 
-    public DefaultExecutionGraphDependenciesResolver(ComponentIdentifier componentIdentifier, Factory<ResolverResults> graphResults, Factory<ResolverResults> artifactResults, WorkNodeAction graphResolveAction) {
+    public DefaultExecutionGraphDependenciesResolver(ComponentIdentifier componentIdentifier, Factory<ResolverResults> graphResults, Factory<ResolverResults> artifactResults, WorkNodeAction graphResolveAction, FileCollectionFactory fileCollectionFactory) {
         this.componentIdentifier = componentIdentifier;
         this.graphResults = graphResults;
         this.artifactResults = artifactResults;
         this.graphResolveAction = graphResolveAction;
+        this.fileCollectionFactory = fileCollectionFactory;
     }
 
     @Override
-    public Try<ArtifactTransformDependenciesInternal> forTransformer(Transformer transformer) {
+    public Try<ArtifactTransformDependencies> forTransformer(Transformer transformer) {
         if (!transformer.requiresDependencies()) {
-            return Try.successful(EMPTY_DEPENDENCIES);
+            return Try.successful(MISSING_DEPENDENCIES);
         }
         ResolverResults results = artifactResults.create();
         if (dependencies == null) {
@@ -89,7 +90,7 @@ public class DefaultExecutionGraphDependenciesResolver implements ExecutionGraph
             }
             return Try.failure(new DefaultLenientConfiguration.ArtifactResolveException("transform dependencies", transformer.getDisplayName(), "artifact transform dependencies", visitor.getFailures()));
         }
-        return Try.successful(new DefaultArtifactTransformDependencies(ImmutableFileCollection.of(visitor.getFiles())));
+        return Try.successful(new DefaultArtifactTransformDependencies(fileCollectionFactory.fixed(visitor.getFiles())));
     }
 
     @Override

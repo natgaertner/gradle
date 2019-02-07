@@ -125,6 +125,9 @@ public class MavenPomFileGenerator {
         for (MavenPomMailingList mailingList : pom.getMailingLists()) {
             model.addMailingList(convertMailingList(mailingList));
         }
+        for (Map.Entry<String, String> property : pom.getProperties().get().entrySet()) {
+            model.addProperty(property.getKey(), property.getValue());
+        }
         return this;
     }
 
@@ -245,32 +248,46 @@ public class MavenPomFileGenerator {
         addDependency(dependency, "runtime");
     }
 
+    public void addOptionalDependency(MavenDependencyInternal optionalDependency) {
+        // For Maven we don't really know if an optional dependency is required for runtime or compile
+        // so we use the safest: compile
+        addDependency(optionalDependency, "compile", true);
+    }
+
     public void addApiDependency(MavenDependencyInternal apiDependency) {
         addDependency(apiDependency, "compile");
     }
 
     private void addDependency(MavenDependencyInternal mavenDependency, String scope) {
+        addDependency(mavenDependency, scope, false);
+    }
+
+    private void addDependency(MavenDependencyInternal mavenDependency, String scope, boolean optional) {
         if (mavenDependency.getArtifacts().size() == 0) {
-            addDependency(mavenDependency, mavenDependency.getArtifactId(), scope, null, null);
+            addDependency(mavenDependency, mavenDependency.getArtifactId(), scope, null, null, optional);
         } else {
             for (DependencyArtifact artifact : mavenDependency.getArtifacts()) {
-                addDependency(mavenDependency, artifact.getName(), scope, artifact.getType(), artifact.getClassifier());
+                addDependency(mavenDependency, artifact.getName(), scope, artifact.getType(), artifact.getClassifier(), optional);
             }
         }
     }
 
-    private void addDependency(MavenDependencyInternal dependency, String artifactId, String scope, String type, String classifier) {
+    private void addDependency(MavenDependencyInternal dependency, String artifactId, String scope, String type, String classifier, boolean optional) {
         Dependency mavenDependency = new Dependency();
         String groupId = dependency.getGroupId();
         String dependencyVersion = dependency.getVersion();
         ImmutableAttributes attributes = attributesForScope(scope);
-        String resolvedVersion = versionMappingStrategy.findStrategyForVariant(scope, attributes).maybeResolveVersion(groupId, artifactId);
+        String resolvedVersion = versionMappingStrategy.findStrategyForVariant(attributes).maybeResolveVersion(groupId, artifactId);
         mavenDependency.setGroupId(groupId);
         mavenDependency.setArtifactId(artifactId);
         mavenDependency.setVersion(resolvedVersion != null ? resolvedVersion : mapToMavenSyntax(dependencyVersion));
         mavenDependency.setType(type);
         mavenDependency.setScope(scope);
         mavenDependency.setClassifier(classifier);
+        if (optional) {
+            // Not using setOptional(optional) in order to avoid <optional>false</optional> in the common case
+            mavenDependency.setOptional(true);
+        }
 
         for (ExcludeRule excludeRule : dependency.getExcludeRules()) {
             Exclusion exclusion = new Exclusion();
@@ -298,7 +315,7 @@ public class MavenPomFileGenerator {
         String artifactId = dependency.getArtifactId();
         mavenDependency.setArtifactId(artifactId);
         ImmutableAttributes attributes = attributesForScope(scope);
-        String resolvedVersion = versionMappingStrategy.findStrategyForVariant(scope, attributes).maybeResolveVersion(groupId, artifactId);
+        String resolvedVersion = versionMappingStrategy.findStrategyForVariant(attributes).maybeResolveVersion(groupId, artifactId);
         mavenDependency.setVersion(resolvedVersion == null ? mapToMavenSyntax(dependency.getVersion()) : resolvedVersion);
         String type = dependency.getType();
         if (type != null) {
